@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tasbih Mutaba'ah</title>
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --bg: #f4f7f6; --surface: #ffffff; --text: #1d1d1f; 
+            --primary: #0f766e; --primary-light: #ccfbf1;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --gray: #9ca3af;
+        }
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; user-select: none; }
+        body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+
+        /* --- SIDEBAR --- */
+        #sidebar {
+            position: fixed; top: 0; left: -280px; width: 280px; height: 100vh;
+            background: var(--surface); box-shadow: 4px 0 15px rgba(0,0,0,0.1); 
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; padding: 25px;
+        }
+        #sidebar.open { left: 0; }
+        .sidebar-menu p { padding: 15px 0; border-bottom: 1px solid #eee; font-size: 1.1rem; cursor: pointer; }
+        
+        /* --- OVERLAY --- */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); z-index: 999; display: none; opacity: 0; transition: 0.3s;
+        }
+        #overlay.show { display: block; opacity: 1; }
+
+        /* --- SCREEN LAYOUTS (Progressive Disclosure) --- */
+        .screen { display: none; padding: 20px; min-height: 100vh; flex-direction: column; max-width: 800px; margin: 0 auto; }
+        .screen.active { display: flex; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- HEADER & BACK BUTTON --- */
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding-top: 10px; }
+        .btn-icon { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--primary); font-weight: bold; padding: 10px; margin: -10px; }
+        .header h2 { font-size: 1.25rem; flex-grow: 1; text-align: center; }
+
+        /* --- MENU UTAMA (Giant Buttons) --- */
+        .main-menu-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .btn-giant {
+            background: var(--surface); border: 2px solid #e5e7eb; border-radius: 16px; 
+            padding: 25px 20px; font-size: 1.2rem; font-weight: bold; color: var(--primary);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; align-items: center; gap: 15px; transition: 0.2s;
+        }
+        .btn-giant:active { transform: scale(0.98); background: var(--primary-light); border-color: var(--primary); }
+        .btn-giant span { font-size: 2rem; }
+
+        /* --- GRID JUZ, PARTISI, HALAMAN --- */
+        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        @media (min-width: 600px) { .grid-container { grid-template-columns: repeat(5, 1fr); } }
+        
+        .box-item {
+            background: var(--surface); padding: 20px 5px; text-align: center; border-radius: 12px; 
+            font-weight: bold; border: 2px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: 0.2s;
+        }
+        .box-item:active { transform: scale(0.95); background: #f3f4f6; }
+        
+        /* Status Colors */
+        .status-hijau { background: var(--success); color: white; border-color: var(--success); }
+        .status-hemat { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+
+        /* --- TRACKING UI (Stopwatch & Tally) --- */
+        .timer-display { font-size: 4.5rem; font-weight: bold; text-align: center; margin: 40px 0 20px; transition: all 0.5s ease; color: var(--text); }
+        .timer-display.shrink { font-size: 2.5rem; margin: 10px 0; transform: translateY(-10px); opacity: 0.5; }
+        
+        .tally-row { font-size: 2.5rem; text-align: center; margin-bottom: 30px; min-height: 60px; font-weight: bold; color: var(--primary); letter-spacing: 2px; }
+        .tally-row del { color: var(--danger); text-decoration-thickness: 4px; margin-right: 5px; }
+        
+        .control-deck { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: auto; padding-bottom: 30px; }
+        .btn-action { border: none; border-radius: 16px; font-size: 1.1rem; font-weight: bold; padding: 20px; color: white; transition: 0.2s; }
+        .btn-action:active { filter: brightness(0.9); transform: scale(0.98); }
+        .bg-gray { background: var(--gray); } .bg-dark { background: var(--text); } .bg-danger { background: var(--danger); }
+        .btn-false { background: var(--warning); color: #fff; font-size: 1.8rem; grid-column: span 2; padding: 35px; box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3); }
+
+        /* Kotak Sesi Undaan */
+        .session-box { cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .session-box.active-session { border-color: var(--primary); background: var(--primary-light); transform: scale(1.05); }
+        
+        /* --- MUROJAAH BATERAI (Alarm Wheel & Grid 10x3) --- */
+        .murojaah-deck { background: var(--surface); padding: 20px; border-radius: 16px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .murojaah-deck .input-group { flex: 1; display: flex; flex-direction: column; }
+        .murojaah-deck select { font-size: 1.2rem; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #fff; }
+        .btn-submit { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 12px 20px; font-weight: bold; font-size: 1.1rem; }
+        
+        .grid-10x3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 40px; }
+        .murojaah-item { display: flex; align-items: center; background: white; padding: 8px; border-radius: 8px; gap: 8px; font-size: 0.9rem; font-weight: bold; border: 1px solid #eee; }
+        .murojaah-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--success); }
+        
+        .battery { flex: 1; height: 12px; border: 1.5px solid #ccc; border-radius: 4px; padding: 1px; position: relative; background: #f9f9f9; }
+        .battery-fill { height: 100%; border-radius: 2px; transition: 0.4s width, 0.4s background; width: 0%; }
+        
+        /* Recap Card */
+        #recap-card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); transform: translateY(50px); opacity: 0; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); display: none; text-align: center;}
+        #recap-card.show { transform: translateY(0); opacity: 1; display: block; }
+        .text-danger { color: var(--danger); font-weight: bold; }
+        .text-success { color: var(--success); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div id="overlay" onclick="toggleSidebar()"></div>
+    <nav id="sidebar">
+        <h2 style="color: var(--primary); margin-bottom: 30px;">Pengaturan</h2>
+        <div class="sidebar-menu">
+            <p>👤 Profil Pengguna</p>
+            <p>☁️ Sinkronisasi Drive</p>
+            <p>⚙️ Setelan Durasi & Target</p>
+            <p>📊 Riwayat Simaan</p>
+        </div>
+        <button class="btn-action bg-dark" onclick="toggleSidebar()" style="width: 100%; margin-top: 50px; padding: 15px;">Tutup</button>
+    </nav>
+
+    <!-- LAYAR 1: MENU UTAMA -->
+    <div id="screen-home" class="screen active">
+        <div class="header">
+            <button class="btn-icon" onclick="toggleSidebar()">☰</button>
+            <h2 style="text-align: left; margin-left: 10px;">Tasbih Mutaba'ah</h2>
+        </div>
+        <p style="margin-bottom: 20px; color: var(--gray);">Pilih aktivitas hafalanmu saat ini:</p>
+        
+        <div class="main-menu-grid">
+            <div class="btn-giant" onclick="setMode('Undaan')"><span>📖</span> <div>Undaan<br><small style="color:var(--gray); font-size:0.9rem; font-weight:normal;">Tikrar Harian per Halaman</small></div></div>
+            <div class="btn-giant" onclick="setMode('Deresan')"><span>🔄</span> <div>Deresan<br><small style="color:var(--gray); font-size:0.9rem; font-weight:normal;">Review per 1/4 Juz (5 Hal)</small></div></div>
+            <div class="btn-giant" onclick="navTo('screen-ujian-choice')"><span>📝</span> <div>Ujian (Tes)<br><small style="color:var(--gray); font-size:0.9rem; font-weight:normal;">Nyetengah (1/2 Juz) & Ngejuz</small></div></div>
+            <div class="btn-giant" onclick="setMode('Simaan')"><span>🎓</span> <div>Simaan<br><small style="color:var(--gray); font-size:0.9rem; font-weight:normal;">Tes Multi-Juz (Gong Utama)</small></div></div>
+            <div class="btn-giant" onclick="navTo('screen-murojaah')"><span>🔋</span> <div>Murojaah<br><small style="color:var(--gray); font-size:0.9rem; font-weight:normal;">Jurnal Batas Bacaan (Baterai)</small></div></div>
+        </div>
+    </div>
+
+    <!-- LAYAR SUB: PILIH UJIAN -->
+    <div id="screen-ujian-choice" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2>Pilih Jenis Ujian</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        <div class="main-menu-grid" style="margin-top: 20px;">
+            <div class="btn-giant" onclick="setMode('Nyetengah')"><span>🌓</span> Nyetengah (1/2 Juz)</div>
+            <div class="btn-giant" onclick="setMode('Ngejuz')"><span>🌕</span> Ngejuz (1 Juz Penuh)</div>
+        </div>
+    </div>
+
+    <!-- LAYAR 2: PILIH JUZ -->
+    <div id="screen-juz" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2 id="title-juz">Pilih Juz</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        <div class="grid-container" id="grid-juz"></div>
+    </div>
+
+    <!-- LAYAR 3: PILIH PARTISI -->
+    <div id="screen-partisi" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2 id="title-partisi">Pilih Partisi</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        <div class="grid-container grid-2" id="grid-partisi"></div>
+    </div>
+
+    <!-- LAYAR 4: PILIH HALAMAN (KHUSUS UNDAAN) -->
+    <div id="screen-halaman" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2 id="title-halaman">Pilih Halaman</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        <div class="grid-container grid-2" id="grid-halaman"></div>
+    </div>
+
+    <!-- LAYAR PRE-START -->
+    <div id="screen-pre" class="screen" style="justify-content: center; text-align: center;">
+        <div class="header" style="position: absolute; top: 20px; left: 20px; width: calc(100% - 40px);">
+            <button class="btn-icon" onclick="goBack()">←</button>
+        </div>
+        <span style="font-size: 4rem; margin-bottom: 20px;">🎯</span>
+        <h2 id="pre-target" style="font-size: 1.8rem; margin-bottom: 10px; color: var(--primary);">Target</h2>
+        <p id="pre-desc" style="color: var(--gray); margin-bottom: 40px; font-size: 1.1rem; line-height: 1.5;">Aturan...</p>
+        
+        <button class="btn-action" style="background: var(--primary); font-size: 2rem; padding: 40px; border-radius: 50%; width: 200px; height: 200px; margin: 0 auto; box-shadow: 0 10px 20px rgba(15, 118, 110, 0.3);" onclick="startTracking()">START</button>
+    </div>
+
+    <!-- LAYAR TRACKING KHUSUS UNDAAN (TASBIH) -->
+    <div id="screen-undaan" class="screen" style="align-items: center;">
+        <div class="header" style="width: 100%;">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2 id="undaan-title">Tikrar Halaman</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        
+        <p style="color: var(--gray); font-size: 0.9rem; margin-bottom: 15px;">Ketuk sesi di bawah untuk memilih waktu tikrar:</p>
+
+        <!-- Indikator 4 Tahap yang BISA DIKLIK -->
+        <div class="grid-container" style="grid-template-columns: repeat(4, 1fr); width: 100%; margin-bottom: 30px; gap: 5px;">
+            <div class="box-item session-box active-session" id="prog-pagi" onclick="setSession('pagi')">Pagi<br><b id="count-pagi">0</b></div>
+            <div class="box-item session-box" id="prog-siang" onclick="setSession('siang')">Siang<br><b id="count-siang">0</b></div>
+            <div class="box-item session-box" id="prog-sore" onclick="setSession('sore')">Sore<br><b id="count-sore">0</b></div>
+            <div class="box-item session-box" id="prog-malam" onclick="setSession('malam')">Malam<br><b id="count-malam">0</b></div>
+        </div>
+
+        <!-- Angka Total -->
+        <div style="font-size: 5rem; font-weight: bold; color: var(--primary); margin-bottom: 10px;" id="undaan-total">0</div>
+        <p style="color: var(--gray); margin-bottom: 20px;">Total Repetisi</p>
+
+        <!-- Tombol Tasbih Raksasa & Minus -->
+        <button onclick="tapUndaan()" style="background: var(--primary); color: white; font-size: 2.5rem; border-radius: 50%; width: 220px; height: 220px; border: 10px solid var(--primary-light); box-shadow: 0 10px 30px rgba(15, 118, 110, 0.4); font-weight:bold;">TAP</button>
+        
+        <button onclick="minusUndaan()" style="background: none; border: none; color: var(--danger); font-size: 1.2rem; font-weight: bold; margin-top: 15px; cursor: pointer; padding: 10px;">-1 (Kurangi)</button>
+
+        <button class="btn-action bg-dark" style="width: 100%; margin-top: auto;" onclick="saveUndaan()">Simpan Progres</button>
+    </div>
+
+    <!-- LAYAR TRACKING (STOPWATCH & TALLY) -->
+    <div id="screen-track" class="screen">
+        <h3 id="track-header" style="text-align: center; color: var(--primary); margin-top: 10px;">Simaan Sedang Berjalan</h3>
+        <div class="timer-display" id="timer">00:00</div>
+        
+        <div class="tally-row" id="tally-display"></div>
+        
+        <!-- REKAP CARD (Muncul setelah stop) -->
+        <div id="recap-card">
+            <h3 style="margin-bottom: 15px;">Evaluasi Selesai</h3>
+            <p style="font-size: 1.1rem; margin-bottom: 10px;">Durasi: <span id="recap-time" style="font-size: 1.3rem;"></span></p>
+            <p style="font-size: 1.1rem; margin-bottom: 25px;">Kesalahan: <strong id="recap-salah" style="font-size: 1.5rem; color: var(--danger);">0</strong></p>
+            <button class="btn-action bg-dark" style="width: 100%;" onclick="finishTracking()">Simpan & Selesai</button>
+        </div>
+
+        <div class="control-deck" id="deck-kontrol">
+            <button class="btn-action btn-false" id="btn-false" onclick="addMistake()">✖ SALAH</button>
+            
+            <!-- Tombol Batal disembunyikan saat waktu berjalan, baru muncul saat PAUSE -->
+            <button class="btn-action bg-danger" id="btn-batal" onclick="cancelTracking()" style="display: none;">BATAL</button>
+            
+            <button class="btn-action bg-gray" id="btn-pause" onclick="togglePause()">PAUSE</button>
+            <button class="btn-action bg-dark" id="btn-stop" 
+                onmousedown="startStopHold()" onmouseup="cancelStopHold()" onmouseleave="cancelStopHold()"
+                ontouchstart="startStopHold()" ontouchend="cancelStopHold()">
+                TAHAN STOP
+            </button> 
+        </div>
+    </div>
+
+    <!-- LAYAR MUROJAAH (BATERAI) -->
+    <div id="screen-murojaah" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2>Jurnal Murojaah</h2>
+            <div style="width: 24px;"></div>
+        </div>
+
+        <!-- Wheel Picker (Deck) -->
+        <div class="murojaah-deck">
+            <div class="input-group">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--gray); margin-bottom: 5px;">Pilih Juz</label>
+                <select id="mur-juz"></select>
+            </div>
+            <div class="input-group">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--gray); margin-bottom: 5px;">Batas Hal</label>
+                <select id="mur-hal"></select>
+            </div>
+            <button class="btn-submit" onclick="saveMurojaah()">Simpan</button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <p style="font-weight: bold; color: var(--primary);">Kapasitas Hafalan 30 Juz</p>
+            <button onclick="resetMurojaah()" style="background: none; border: none; color: var(--danger); font-weight: bold; cursor: pointer;">Reset Siklus</button>
+        </div>
+
+        <!-- Grid 10x3 -->
+        <div class="grid-10x3" id="mur-grid"></div>
+    </div>
+
+    <script>
+        /* --- STATE MANAGEMENT & NAVIGATION --- */
+        let historyStack = ['screen-home'];
+        let currentMode = '';
+        let selectedJuz = 0, selectedPartisi = 0, selectedHal = 0;
+        
+        // Data LocalStorage untuk Murojaah (Persentase Baterai)
+        let dbMurojaah = JSON.parse(localStorage.getItem('tasbih_murojaah')) || {};
+        // Data LocalStorage untuk Undaan
+        let dbUndaan = JSON.parse(localStorage.getItem('tasbih_undaan')) || {};
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('overlay').classList.toggle('show');
+        }
+
+        function navTo(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if(historyStack[historyStack.length-1] !== screenId) {
+                historyStack.push(screenId);
+            }
+        }
+
+        function goBack() {
+            if(historyStack.length > 1) {
+                historyStack.pop(); // Buang layar saat ini
+                let prevScreen = historyStack[historyStack.length-1];
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(prevScreen).classList.add('active');
+            }
+        }
+
+        /* --- LOGIKA ALUR (DRILL DOWN) --- */
+        function setMode(mode) {
+            currentMode = mode;
+            if(mode === 'Simaan') {
+                // Simaan langsung ke pre-start karena multi-juz
+                setupPreStart('Simaan Bebas', 'Multi-Juz. Atur tempo dan catat kesalahan. Target: 20-30 Menit per Juz.');
+            } else {
+                renderJuzList();
+            }
+        }
+
+        function renderJuzList() {
+            document.getElementById('title-juz').innerText = `Pilih Juz (${currentMode})`;
+            let container = document.getElementById('grid-juz');
+            container.innerHTML = '';
+            for(let i=1; i<=30; i++) {
+                let div = document.createElement('div');
+                div.className = 'box-item';
+                div.innerText = 'Juz ' + i;
+                div.onclick = () => {
+                    selectedJuz = i;
+                    if(currentMode === 'Undaan' || currentMode === 'Deresan') renderPartisiList();
+                    else if(currentMode === 'Nyetengah') setupPreStart(`Nyetengah Juz ${i}`, 'Tes 10 Halaman (1/2 Juz). Siapkan mental.');
+                    else if(currentMode === 'Ngejuz') setupPreStart(`Ngejuz Juz ${i}`, 'Tes 1 Juz Penuh. Target: 20 - 30 Menit. Jika lewat batas, durasi akan merah.');
+                };
+                container.appendChild(div);
+            }
+            navTo('screen-juz');
+        }
+
+        function renderPartisiList() {
+            document.getElementById('title-partisi').innerText = `Juz ${selectedJuz}`;
+            let container = document.getElementById('grid-partisi');
+            container.innerHTML = '';
+            
+            // Logika khusus Juz 30 vs Juz Normal
+            let parts = ['1/4 Pertama', '1/4 Kedua', '1/4 Ketiga', '1/4 Terakhir'];
+            if(selectedJuz === 30) parts = ['Hal 1-5', 'Hal 6-10', 'Hal 11-15', 'Surah Pendek'];
+            
+            parts.forEach((label, index) => {
+                let div = document.createElement('div');
+                div.className = 'box-item';
+                div.innerText = label;
+                div.onclick = () => {
+                    selectedPartisi = index + 1;
+                    if(currentMode === 'Undaan') renderHalamanList();
+                    else setupPreStart(`Deresan Juz ${selectedJuz}`, `Review Partisi ke-${selectedPartisi}. Minimal 3 hitungan/repetisi.`);
+                };
+                container.appendChild(div);
+            });
+            navTo('screen-partisi');
+        }
+
+        function renderHalamanList() {
+            document.getElementById('title-halaman').innerText = `Juz ${selectedJuz} - Part ${selectedPartisi}`;
+            let container = document.getElementById('grid-halaman');
+            container.innerHTML = '';
+            
+            let startHal = ((selectedPartisi - 1) * 5) + 1;
+            for(let i=0; i<5; i++) {
+                let currentHal = startHal + i;
+                let div = document.createElement('div');
+                div.className = 'box-item';
+                div.innerText = `Hal ${currentHal}`;
+                
+                // Ambil format data baru (Objek)
+                let key = `juz_${selectedJuz}_hal_${currentHal}`;
+                let savedData = dbUndaan[key] || { pagi: 0, siang: 0, sore: 0, malam: 0 };
+                let totalSaved = savedData.pagi + savedData.siang + savedData.sore + savedData.malam;
+                
+                if(totalSaved >= 40) {
+                    div.classList.add('status-hijau'); // Hijau jika total keseluruhan mencapai 40
+                } else if(totalSaved > 0) {
+                    div.classList.add('status-hemat'); // Biru muda jika sedang dicicil
+                }
+
+                div.onclick = () => {
+                    selectedHal = currentHal;
+                    startUndaanTracking(currentHal, savedData); 
+                };
+                container.appendChild(div);
+            }
+            navTo('screen-halaman');
+        }
+
+        /* --- LOGIKA KHUSUS UNDAAN (TASBIH) --- */
+        let undaanCount = 0;
+        let undaanData = { pagi: 0, siang: 0, sore: 0, malam: 0 };
+        let activeSession = 'pagi';
+
+        function startUndaanTracking(hal, savedData) {
+            undaanData = savedData; 
+            document.getElementById('undaan-title').innerText = `Tikrar Hal ${hal}`;
+            setSession('pagi'); // Reset UI ke Pagi saat pertama buka
+            updateUndaanUI();
+            navTo('screen-undaan');
+        }
+
+        function setSession(sessionName) {
+            activeSession = sessionName;
+            
+            // Hapus efek terpilih dari semua kotak
+            document.querySelectorAll('.session-box').forEach(el => el.classList.remove('active-session'));
+            
+            // Tambahkan efek terpilih ke kotak yang diklik
+            document.getElementById('prog-' + sessionName).classList.add('active-session');
+        }
+
+        function tapUndaan() {
+            undaanData[activeSession]++; // Tambahkan ke sesi yang sedang aktif
+            if(navigator.vibrate) navigator.vibrate(50);
+            updateUndaanUI();
+        }
+
+        function minusUndaan() {
+            if(undaanData[activeSession] > 0) {
+                undaanData[activeSession]--; // Kurangi jika salah pencet
+                updateUndaanUI();
+            }
+        }
+
+        function updateUndaanUI() {
+            let total = 0;
+            ['pagi', 'siang', 'sore', 'malam'].forEach(session => {
+                let count = undaanData[session];
+                total += count;
+                
+                document.getElementById('count-' + session).innerText = count;
+                let box = document.getElementById('prog-' + session);
+                
+                // Visualisasi Warna Kotak: Hijau jika mencapai 10 (sebagai bentuk apresiasi), tapi tetap bisa nambah
+                if(count >= 10) {
+                    box.classList.add('status-hijau');
+                    box.classList.remove('status-hemat');
+                } else if (count > 0) {
+                    box.classList.add('status-hemat');
+                    box.classList.remove('status-hijau');
+                } else {
+                    box.classList.remove('status-hijau', 'status-hemat');
+                }
+            });
+
+            document.getElementById('undaan-total').innerText = total;
+        }
+
+        function saveUndaan() {
+            let key = `juz_${selectedJuz}_hal_${selectedHal}`;
+            dbUndaan[key] = undaanData;
+            localStorage.setItem('tasbih_undaan', JSON.stringify(dbUndaan));
+            
+            let total = undaanData.pagi + undaanData.siang + undaanData.sore + undaanData.malam;
+            alert(`Tersimpan: Total ${total} repetisi untuk Halaman ${selectedHal}`);
+            goBack(); 
+            renderHalamanList(); 
+        }
+
+        function setupPreStart(targetTitle, targetDesc) {
+            document.getElementById('pre-target').innerText = targetTitle;
+            document.getElementById('pre-desc').innerText = targetDesc;
+            navTo('screen-pre');
+        }
+
+        /* --- LOGIKA TRACKING (STOPWATCH & TALLY) --- */
+        let timerInterval, seconds = 0, isPaused = false, mistakes = 0;
+        let holdTimer; // Untuk Tahan Stop
+
+        function startTracking() {
+            seconds = 0; mistakes = 0; isPaused = false;
+            document.getElementById('track-header').innerText = `Sesi: ${currentMode}`;
+            document.getElementById('timer').innerText = "00:00";
+            document.getElementById('timer').classList.remove('shrink');
+            document.getElementById('tally-display').innerHTML = "";
+            document.getElementById('recap-card').classList.remove('show');
+            document.getElementById('deck-kontrol').style.display = "grid";
+            
+            navTo('screen-track');
+            
+            timerInterval = setInterval(() => {
+                if(!isPaused) {
+                    seconds++;
+                    let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                    let s = (seconds % 60).toString().padStart(2, '0');
+                    document.getElementById('timer').innerText = `${m}:${s}`;
+                }
+            }, 1000);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            let btnPause = document.getElementById('btn-pause');
+            let btnBatal = document.getElementById('btn-batal');
+            let btnFalse = document.getElementById('btn-false');
+            
+            if(isPaused) {
+                // Tampilan saat dijeda (Munculkan tombol Batal)
+                btnPause.innerText = "RESUME";
+                btnPause.style.background = "var(--primary)";
+                btnPause.style.gridColumn = "span 2"; // Tombol resume jadi lebar
+                btnFalse.style.display = "none"; // Hilangkan tombol SALAH sementara
+                btnBatal.style.display = "block"; // Munculkan BATAL
+            } else {
+                // Tampilan saat dilanjut (Kembali normal)
+                btnPause.innerText = "PAUSE";
+                btnPause.style.background = "var(--gray)";
+                btnPause.style.gridColumn = "span 1"; 
+                btnFalse.style.display = "block";
+                btnBatal.style.display = "none";
+            }
+        }
+
+        function cancelTracking() {
+            if(confirm('Hajat / Batal wudhu? Yakin ingin membatalkan sesi ini? Waktu dan kesalahan tidak akan disimpan.')) {
+                clearInterval(timerInterval);
+                
+                // Kembalikan UI Pause ke semula agar tidak error saat tes berikutnya
+                isPaused = false;
+                document.getElementById('btn-pause').innerText = "PAUSE";
+                document.getElementById('btn-pause').style.background = "var(--gray)";
+                document.getElementById('btn-pause').style.gridColumn = "span 1"; 
+                document.getElementById('btn-false').style.display = "block";
+                document.getElementById('btn-batal').style.display = "none";
+                
+                goBack(); // Mundur ke menu sebelumnya
+            }
+        }
+
+        function addMistake() {
+            if(isPaused || currentMode === 'Undaan') return; // Undaan tak perlu hitung salah
+            mistakes++;
+            if(navigator.vibrate) navigator.vibrate(50); // Haptic feedback
+            
+            // Render Tally (Kelipatan 5 dicoret)
+            let display = document.getElementById('tally-display');
+            let bundles = Math.floor(mistakes / 5);
+            let remainder = mistakes % 5;
+            
+            let html = "";
+            for(let i=0; i<bundles; i++) html += "<del>IIIII</del> ";
+            for(let i=0; i<remainder; i++) html += "I";
+            display.innerHTML = html;
+        }
+
+        // Logika Tahan Tombol 2 Detik
+        function startStopHold() {
+            if(isPaused) return; // Jika pause, matikan hold agar aman
+            document.getElementById('btn-stop').innerText = "MENAHAN...";
+            document.getElementById('btn-stop').style.background = "var(--danger)";
+            holdTimer = setTimeout(() => {
+                executeStop();
+            }, 1500); // 1.5 detik dirasa lebih pas di HP
+        }
+        function cancelStopHold() {
+            clearTimeout(holdTimer);
+            document.getElementById('btn-stop').innerText = "TAHAN STOP (2s)";
+            document.getElementById('btn-stop').style.background = "var(--text)";
+        }
+
+        function executeStop() {
+            clearInterval(timerInterval);
+            let minutes = Math.floor(seconds / 60);
+            let timeStr = document.getElementById('timer').innerText;
+            
+            // Animasi Shrink
+            document.getElementById('timer').classList.add('shrink');
+            document.getElementById('deck-kontrol').style.display = "none";
+            document.getElementById('tally-display').innerHTML = "";
+            
+            // Validasi 20-30 Menit (Khusus Ngejuz/Simaan)
+            let recapTimeObj = document.getElementById('recap-time');
+            if((currentMode === 'Ngejuz' || currentMode === 'Simaan') && (minutes < 20 || minutes >= 30)) {
+                recapTimeObj.innerHTML = `<span class="text-danger">${timeStr} ⚠️</span>`;
+            } else {
+                recapTimeObj.innerHTML = `<span class="text-success">${timeStr} ✓</span>`;
+            }
+            
+            document.getElementById('recap-salah').innerText = mistakes;
+            document.getElementById('recap-card').classList.add('show');
+        }
+
+        function finishTracking() {
+            // Kembali ke Home
+            historyStack = ['screen-home'];
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-home').classList.add('active');
+            alert("Data berhasil disimpan secara lokal!");
+        }
+
+        /* --- LOGIKA MUROJAAH (BATERAI) --- */
+        function initMurojaahUI() {
+            // Isi Select Juz & Hal
+            let selJuz = document.getElementById('mur-juz');
+            let selHal = document.getElementById('mur-hal');
+            selJuz.innerHTML = ''; selHal.innerHTML = '';
+            for(let i=1; i<=30; i++) selJuz.innerHTML += `<option value="${i}">Juz ${i}</option>`;
+            for(let i=1; i<=20; i++) selHal.innerHTML += `<option value="${i}">Hal ${i}</option>`;
+            
+            renderMurojaahGrid();
+        }
+
+        function renderMurojaahGrid() {
+            let grid = document.getElementById('mur-grid');
+            grid.innerHTML = '';
+            for(let i=1; i<=30; i++) {
+                let pct = dbMurojaah[i] || 0;
+                let isChecked = pct === 100 ? 'checked' : '';
+                
+                // Tentukan warna baterai
+                let batColor = "#ef4444"; // Merah
+                if(pct > 0 && pct < 100) batColor = "#f59e0b"; // Kuning/Charging
+                if(pct === 100) batColor = "#10b981"; // Hijau
+                
+                grid.innerHTML += `
+                    <div class="murojaah-item">
+                        <input type="checkbox" ${isChecked} onchange="toggleMurojaahCheck(${i}, this.checked)">
+                        <div style="width: 35px; text-align:center;">J${i}</div>
+                        <div class="battery">
+                            <div class="battery-fill" style="width: ${pct}%; background: ${batColor};"></div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function saveMurojaah() {
+            let j = document.getElementById('mur-juz').value;
+            let h = document.getElementById('mur-hal').value;
+            let pct = Math.round((h / 20) * 100);
+            
+            // Otomatis isi penuh Juz sebelumnya (Logika Bookmark)
+            for(let i=1; i<j; i++) { dbMurojaah[i] = 100; }
+            dbMurojaah[j] = pct;
+            
+            localStorage.setItem('tasbih_murojaah', JSON.stringify(dbMurojaah));
+            renderMurojaahGrid();
+        }
+
+        function toggleMurojaahCheck(juz, isChecked) {
+            dbMurojaah[juz] = isChecked ? 100 : 0;
+            localStorage.setItem('tasbih_murojaah', JSON.stringify(dbMurojaah));
+            renderMurojaahGrid();
+        }
+
+        function resetMurojaah() {
+            if(confirm('Hapus seluruh siklus Murojaah saat ini dan mulai dari 0?')) {
+                dbMurojaah = {};
+                localStorage.setItem('tasbih_murojaah', JSON.stringify(dbMurojaah));
+                renderMurojaahGrid();
+            }
+        }
+
+        // Init Panggilan
+        initMurojaahUI();
+
+    </script>
+</body>
+</html>
