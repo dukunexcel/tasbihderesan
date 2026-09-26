@@ -131,7 +131,7 @@
             <p>👤 Profil Pengguna</p>
             <p>☁️ Sinkronisasi Drive</p>
             <p>⚙️ Setelan Durasi & Target</p>
-            <p>📊 Riwayat Simaan</p>
+            <p onclick="bukaRiwayat()">📊 Riwayat Ujian & Simaan</p>
         </div>
         <button class="btn-action bg-dark" onclick="toggleSidebar()" style="width: 100%; margin-top: 50px; padding: 15px;">Tutup</button>
     </nav>
@@ -206,6 +206,41 @@
         <p id="pre-desc" style="color: var(--gray); margin-bottom: 40px; font-size: 1.1rem; line-height: 1.5;">Aturan...</p>
         
         <button class="btn-action" style="background: var(--primary); font-size: 2rem; padding: 40px; border-radius: 50%; width: 200px; height: 200px; margin: 0 auto; box-shadow: 0 10px 20px rgba(15, 118, 110, 0.3);" onclick="startTracking()">START</button>
+    </div>
+
+    <!-- LAYAR PENGATURAN SIMAAN (Pilih Rentang Juz) -->
+    <div id="screen-simaan-setup" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2>Pengaturan Simaan</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        
+        <p style="color: var(--gray); margin-bottom: 20px;">Tentukan rentang Juz yang akan disima' dalam sesi ini:</p>
+        
+        <div class="murojaah-deck">
+            <div class="input-group">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--gray);">Mulai Juz</label>
+                <select id="sim-mulai"></select>
+            </div>
+            <div class="input-group">
+                <label style="font-size: 0.8rem; font-weight: bold; color: var(--gray);">Sampai Juz</label>
+                <select id="sim-sampai"></select>
+            </div>
+        </div>
+        <button class="btn-action bg-dark" style="width: 100%;" onclick="initSimaanSession()">Lanjut Persiapan</button>
+    </div>
+
+    <!-- LAYAR RIWAYAT EVALUASI -->
+    <div id="screen-riwayat" class="screen">
+        <div class="header">
+            <button class="btn-icon" onclick="goBack()">←</button>
+            <h2>Riwayat Ujian & Simaan</h2>
+            <div style="width: 24px;"></div>
+        </div>
+        <div id="riwayat-container" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px;">
+            <!-- Riwayat akan dimunculkan di sini -->
+        </div>
     </div>
 
     <!-- LAYAR TRACKING KHUSUS UNDAAN (TASBIH) -->
@@ -308,6 +343,13 @@
         let dbMurojaah = JSON.parse(localStorage.getItem('tasbih_murojaah')) || {};
         // Data LocalStorage untuk Undaan
         let dbUndaan = JSON.parse(localStorage.getItem('tasbih_undaan')) || {};
+        // Data LocalStorage untuk Riwayat
+        let dbRiwayat = JSON.parse(localStorage.getItem('tasbih_riwayat')) || [];
+        
+        // Variabel Sesi Ujian/Simaan
+        let jamMulai = "", jamSelesai = "";
+        let targetJuzSaatIni = 0; 
+        let batasJuzSimaan = 0;
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -335,8 +377,12 @@
         function setMode(mode) {
             currentMode = mode;
             if(mode === 'Simaan') {
-                // Simaan langsung ke pre-start karena multi-juz
-                setupPreStart('Simaan Bebas', 'Multi-Juz. Atur tempo dan catat kesalahan. Target: 20-30 Menit per Juz.');
+                // Isi opsi select Juz 1-30
+                let html = '';
+                for(let i=1; i<=30; i++) html += `<option value="${i}">Juz ${i}</option>`;
+                document.getElementById('sim-mulai').innerHTML = html;
+                document.getElementById('sim-sampai').innerHTML = html;
+                navTo('screen-simaan-setup');
             } else {
                 renderJuzList();
             }
@@ -414,6 +460,45 @@
                 container.appendChild(div);
             }
             navTo('screen-halaman');
+        }
+
+        function initSimaanSession() {
+            let mulai = parseInt(document.getElementById('sim-mulai').value);
+            let sampai = parseInt(document.getElementById('sim-sampai').value);
+            
+            if(mulai > sampai) {
+                alert("Juz akhir tidak boleh lebih kecil dari Juz awal!"); return;
+            }
+            
+            targetJuzSaatIni = mulai;
+            batasJuzSimaan = sampai;
+            
+            setupPreStart(`Simaan Juz ${targetJuzSaatIni}`, `Sesi Multijuz (${mulai} s/d ${sampai}). Target: 20-30 Menit. Ketuk salah jika lupa.`);
+        }
+
+        function bukaRiwayat() {
+            toggleSidebar();
+            let container = document.getElementById('riwayat-container');
+            container.innerHTML = '';
+            
+            if(dbRiwayat.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#999;">Belum ada riwayat ujian.</p>';
+            } else {
+                // Render riwayat dari yang terbaru (reverse)
+                [...dbRiwayat].reverse().forEach(log => {
+                    container.innerHTML += `
+                        <div style="background: white; padding: 15px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 10px; margin-bottom: 10px;">
+                                <strong style="color: var(--primary);">${log.mode} (Juz ${log.juz})</strong>
+                                <span style="font-size: 0.85rem; color: #888;">${log.tanggal}</span>
+                            </div>
+                            <p style="font-size: 0.9rem; margin-bottom: 5px;">Waktu: <b>${log.jamMulai} - ${log.jamSelesai}</b> (${log.durasiText})</p>
+                            <p style="font-size: 0.9rem;">Total Kesalahan: <b style="color: var(--danger);">${log.salah}</b> kali</p>
+                        </div>
+                    `;
+                });
+            }
+            navTo('screen-riwayat');
         }
 
         /* --- LOGIKA KHUSUS UNDAAN (TASBIH) --- */
@@ -499,7 +584,14 @@
 
         function startTracking() {
             seconds = 0; mistakes = 0; isPaused = false;
-            document.getElementById('track-header').innerText = `Sesi: ${currentMode}`;
+            
+            // Tangkap Jam Mulai Nyata
+            let now = new Date();
+            jamMulai = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            
+            let labelSesi = (currentMode === 'Simaan') ? `Simaan Juz ${targetJuzSaatIni}` : `Sesi: ${currentMode}`;
+            document.getElementById('track-header').innerText = labelSesi;
+            
             document.getElementById('timer').innerText = "00:00";
             document.getElementById('timer').classList.remove('shrink');
             document.getElementById('tally-display').innerHTML = "";
@@ -516,6 +608,39 @@
                     document.getElementById('timer').innerText = `${m}:${s}`;
                 }
             }, 1000);
+        }
+
+        function executeStop() {
+            clearInterval(timerInterval);
+            
+            // Tangkap Jam Selesai Nyata
+            let now = new Date();
+            jamSelesai = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            
+            let minutes = Math.floor(seconds / 60);
+            let timeStr = document.getElementById('timer').innerText;
+            
+            document.getElementById('timer').classList.add('shrink');
+            document.getElementById('deck-kontrol').style.display = "none";
+            document.getElementById('tally-display').innerHTML = "";
+            
+            let recapTimeObj = document.getElementById('recap-time');
+            if((currentMode === 'Ngejuz' || currentMode === 'Simaan') && (minutes < 20 || minutes >= 30)) {
+                recapTimeObj.innerHTML = `<span class="text-danger">${timeStr} ⚠️</span> <br><small>(${jamMulai} - ${jamSelesai})</small>`;
+            } else {
+                recapTimeObj.innerHTML = `<span class="text-success">${timeStr} ✓</span> <br><small>(${jamMulai} - ${jamSelesai})</small>`;
+            }
+            
+            document.getElementById('recap-salah').innerText = mistakes;
+            document.getElementById('recap-card').classList.add('show');
+            
+            // Logika Tombol Selesai vs Lanjut Juz (Khusus Simaan)
+            let btnSelesai = document.getElementById('recap-card').querySelector('button');
+            if(currentMode === 'Simaan' && targetJuzSaatIni < batasJuzSimaan) {
+                btnSelesai.innerText = `Simpan & Lanjut Juz ${targetJuzSaatIni + 1}`;
+            } else {
+                btnSelesai.innerText = "Simpan & Selesai";
+            }
         }
 
         function togglePause() {
@@ -588,34 +713,37 @@
             document.getElementById('btn-stop').style.background = "var(--text)";
         }
 
-        function executeStop() {
-            clearInterval(timerInterval);
-            let minutes = Math.floor(seconds / 60);
-            let timeStr = document.getElementById('timer').innerText;
-            
-            // Animasi Shrink
-            document.getElementById('timer').classList.add('shrink');
-            document.getElementById('deck-kontrol').style.display = "none";
-            document.getElementById('tally-display').innerHTML = "";
-            
-            // Validasi 20-30 Menit (Khusus Ngejuz/Simaan)
-            let recapTimeObj = document.getElementById('recap-time');
-            if((currentMode === 'Ngejuz' || currentMode === 'Simaan') && (minutes < 20 || minutes >= 30)) {
-                recapTimeObj.innerHTML = `<span class="text-danger">${timeStr} ⚠️</span>`;
-            } else {
-                recapTimeObj.innerHTML = `<span class="text-success">${timeStr} ✓</span>`;
-            }
-            
-            document.getElementById('recap-salah').innerText = mistakes;
-            document.getElementById('recap-card').classList.add('show');
-        }
-
         function finishTracking() {
-            // Kembali ke Home
-            historyStack = ['screen-home'];
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById('screen-home').classList.add('active');
-            alert("Data berhasil disimpan secara lokal!");
+            // Buat Objek Riwayat
+            let today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            let timeStr = document.getElementById('timer').innerText;
+            let juzDisimpan = (currentMode === 'Simaan') ? targetJuzSaatIni : selectedJuz;
+            
+            let logData = {
+                mode: currentMode,
+                juz: juzDisimpan,
+                tanggal: today,
+                jamMulai: jamMulai,
+                jamSelesai: jamSelesai,
+                durasiText: timeStr,
+                salah: mistakes
+            };
+            
+            // Simpan ke array dan LocalStorage
+            dbRiwayat.push(logData);
+            localStorage.setItem('tasbih_riwayat', JSON.stringify(dbRiwayat));
+            
+            // Cek apakah ini Simaan dan masih ada Juz selanjutnya
+            if(currentMode === 'Simaan' && targetJuzSaatIni < batasJuzSimaan) {
+                targetJuzSaatIni++; // Naik level ke juz berikutnya
+                setupPreStart(`Simaan Juz ${targetJuzSaatIni}`, `Lanjut ke Juz ${targetJuzSaatIni}. Fokus dan atur napas.`);
+            } else {
+                // Jika selesai atau mode biasa, kembali ke Home
+                historyStack = ['screen-home'];
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById('screen-home').classList.add('active');
+                alert("Alhamdulillah, sesi berhasil disimpan ke Riwayat!");
+            }
         }
 
         /* --- LOGIKA MUROJAAH (BATERAI) --- */
