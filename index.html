@@ -1066,26 +1066,17 @@
         }
 
         function finishTracking() {
-            // Push aktivitas terakhir yang belum masuk Live Log
+            // 1. Ambil data waktu terakhir yang belum masuk Live Log
             let timeStr = document.getElementById('timer').innerText;
             let labelData = (currentMode === 'Simaan') ? `Juz ${targetJuzSaatIni}` : 
-                            (currentMode === 'Deresan') ? `Rep ${currentRepetisi}` : `Sesi Tunggal`;
+                            (currentMode === 'Deresan') ? `Rep ${sessionLiveLogs.length + 1}` : 
+                            (currentMode === 'Nyetengah') ? `Bagian ${selectedPartisi}` : `Sesi Tunggal`;
                             
             sessionLiveLogs.push({
                 label: labelData, jamMulai: jamMulai, jamSelesai: jamSelesai, durasi: timeStr, salah: mistakes
             });
 
-            if(currentMode === 'Deresan') {
-                let key = `juz_${selectedJuz}_part_${selectedPartisi}`;
-                let maxRep = dbDeresan[key] || 0;
-                // Jika repetisi sesi ini lebih banyak dari riwayat sebelumnya, perbarui datanya
-                if(sessionLiveLogs.length > maxRep) {
-                    dbDeresan[key] = sessionLiveLogs.length;
-                    localStorage.setItem('tasbih_deresan', JSON.stringify(dbDeresan));
-                }
-            }
-
-            // --- SIMPAN PENCAPAIAN UJIAN (Terpisah) ---
+            // 2. Simpan Pencapaian Warna Ujian (Terpisah)
             if (currentMode === 'Simaan') {
                 dbSimaan[`juz_${targetJuzSaatIni}`] = true;
                 localStorage.setItem('tasbih_simaan', JSON.stringify(dbSimaan));
@@ -1097,14 +1088,26 @@
                 dbNyetengah[`juz_${selectedJuz}_${bag}`] = true;
                 localStorage.setItem('tasbih_nyetengah', JSON.stringify(dbNyetengah));
             }
-            localStorage.setItem('tasbih_ujian', JSON.stringify(dbUjian));
 
-            // Rekap Total
+            // 3. Simpan Pencapaian Warna & Repetisi Deresan
+            if (currentMode === 'Deresan') {
+                let key = `juz_${selectedJuz}_part_${selectedPartisi}`;
+                let maxRep = dbDeresan[key] || 0;
+                if(sessionLiveLogs.length > maxRep) {
+                    dbDeresan[key] = sessionLiveLogs.length;
+                    localStorage.setItem('tasbih_deresan', JSON.stringify(dbDeresan));
+                }
+            }
+
+            // 4. BUNGKUS KE DALAM BUKU RAPOR (RIWAYAT)
             let today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
             let juzDisimpan = (currentMode === 'Simaan') ? `${sessionLiveLogs[0].label} - ${sessionLiveLogs[sessionLiveLogs.length-1].label}` : selectedJuz;
             let totalSalah = sessionLiveLogs.reduce((sum, log) => sum + log.salah, 0);
+            
+            // Mengambil jam mulai dari sesi pertama, dan jam selesai dari sesi terakhir
             let jamMulaiAwal = sessionLiveLogs[0].jamMulai;
             let jamSelesaiAkhir = sessionLiveLogs[sessionLiveLogs.length-1].jamSelesai;
+
             let logData = {
                 mode: currentMode,
                 juz: juzDisimpan,
@@ -1119,10 +1122,11 @@
             dbRiwayat.push(logData);
             localStorage.setItem('tasbih_riwayat', JSON.stringify(dbRiwayat));
             
+            // 5. Kembali ke Layar Home
             historyStack = ['screen-home'];
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById('screen-home').classList.add('active');
-            alert("Sesi dan rincian tabel berhasil disimpan ke Riwayat!");
+            alert("Alhamdulillah, sesi dan riwayat berhasil disimpan!");
         }
 
         /* --- LOGIKA MUROJAAH (BATERAI) --- */
