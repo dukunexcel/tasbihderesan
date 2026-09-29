@@ -301,7 +301,7 @@
         
         <!-- REKAP CARD -->
         <div id="recap-card">
-            <h3 style="margin-bottom: 15px;">Sesi Dijeda / Selesai</h3>
+            <h3 id="recap-title" style="margin-bottom: 15px;">Evaluasi Selesai</h3>
             <p style="font-size: 1.1rem; margin-bottom: 10px;">Durasi: <span id="recap-time" style="font-size: 1.3rem;"></span></p>
             <p style="font-size: 1.1rem; margin-bottom: 25px;">Kesalahan: <strong id="recap-salah" style="font-size: 1.5rem; color: var(--danger);">0</strong></p>
             
@@ -362,7 +362,9 @@
         let dbUndaan = JSON.parse(localStorage.getItem('tasbih_undaan')) || {};
         let dbRiwayat = JSON.parse(localStorage.getItem('tasbih_riwayat')) || [];
         let dbDeresan = JSON.parse(localStorage.getItem('tasbih_deresan')) || {};
-        let dbUjian = JSON.parse(localStorage.getItem('tasbih_ujian')) || {}; 
+        let dbNyetengah = JSON.parse(localStorage.getItem('tasbih_nyetengah')) || {};
+        let dbNgejuz = JSON.parse(localStorage.getItem('tasbih_ngejuz')) || {};
+        let dbSimaan = JSON.parse(localStorage.getItem('tasbih_simaan')) || {};
         let sessionLiveLogs = []; 
         let currentRepetisi = 1;
         let jamMulai = "", jamSelesai = "";
@@ -398,9 +400,14 @@
                     renderPartisiList();
                 }
             } else if (tipe === 'ujian') {
-                if(confirm(`Yakin mereset SEMUA indikator warna Ujian (Nyetengah/Ngejuz/Simaan)?\n(Riwayat log di buku rapor tidak akan terhapus, hanya indikator bar-nya saja yang kembali abu-abu).`)) {
-                    dbUjian = {};
-                    localStorage.setItem('tasbih_ujian', JSON.stringify(dbUjian));
+                if(confirm(`Yakin mereset bar warna untuk menu ${currentMode} ini? (Riwayat di Buku Rapor tidak ikut terhapus)`)) {
+                    if (currentMode === 'Nyetengah') {
+                        dbNyetengah = {}; localStorage.setItem('tasbih_nyetengah', JSON.stringify(dbNyetengah));
+                    } else if (currentMode === 'Ngejuz') {
+                        dbNgejuz = {}; localStorage.setItem('tasbih_ngejuz', JSON.stringify(dbNgejuz));
+                    } else if (currentMode === 'Simaan') {
+                        dbSimaan = {}; localStorage.setItem('tasbih_simaan', JSON.stringify(dbSimaan));
+                    }
                     renderJuzList();
                 }
             }
@@ -462,19 +469,28 @@
                 let label = `Juz ${i}`;
                 let badge = "";
 
-                // Render indikator warna untuk mode Ujian
-                if (['Ngejuz', 'Nyetengah', 'Simaan'].includes(currentMode)) {
-                    let status = dbUjian[`juz_${i}`] || 'kosong'; 
+                // Baca indikator warna secara eksklusif berdasarkan Mode
+                if (currentMode === 'Simaan' && dbSimaan[`juz_${i}`]) {
+                    div.classList.add('status-hijau'); 
+                    badge = `<br><small style="font-size:0.75rem;">(Simaan ✓)</small>`;
+                } 
+                else if (currentMode === 'Ngejuz' && dbNgejuz[`juz_${i}`]) {
+                    div.classList.add('status-hemat'); 
+                    badge = `<br><small style="font-size:0.75rem;">(Ngejuz ✓)</small>`;
+                } 
+                else if (currentMode === 'Nyetengah') {
+                    let b1 = dbNyetengah[`juz_${i}_bag_1`];
+                    let b2 = dbNyetengah[`juz_${i}_bag_2`];
                     
-                    if(status === 'simaan') {
-                        div.classList.add('status-hijau'); // Hijau Solid
-                        badge = `<br><small style="font-size:0.75rem;">(Simaan ✓)</small>`;
-                    } else if(status === 'ngejuz') {
-                        div.classList.add('status-hemat'); // Hijau Muda
-                        badge = `<br><small style="font-size:0.75rem;">(Ngejuz ✓)</small>`;
-                    } else if(status === 'nyetengah_1' || status === 'nyetengah_2') {
-                        div.classList.add('status-warning'); // Kuning
-                        badge = `<br><small style="font-size:0.75rem;">(1/2 Juz)</small>`;
+                    if (b1 && b2) {
+                        div.classList.add('nyetengah-penuh'); 
+                        badge = `<br><small style="font-size:0.75rem; color:#d97706;">(Dicicil 2/2)</small>`;
+                    } else if (b1) {
+                        div.classList.add('nyetengah-kiri'); 
+                        badge = `<br><small style="font-size:0.75rem; color:#d97706;">(1/2 Awal)</small>`;
+                    } else if (b2) {
+                        div.classList.add('nyetengah-kanan'); 
+                        badge = `<br><small style="font-size:0.75rem; color:#d97706;">(1/2 Akhir)</small>`;
                     }
                 }
                 
@@ -488,7 +504,7 @@
                 container.appendChild(div);
             }
 
-            // Tombol Reset Siklus Ujian
+            // Tombol Reset Eksklusif
             let resetBtn = document.getElementById('btn-reset-ujian');
             if (['Ngejuz', 'Nyetengah', 'Simaan'].includes(currentMode)) {
                 if (!resetBtn) {
@@ -496,12 +512,11 @@
                     resetBtn.id = 'btn-reset-ujian';
                     resetBtn.className = 'btn-action bg-danger';
                     resetBtn.style = 'width: 100%; margin-top: 30px; padding: 15px; font-size: 1rem;';
-                    resetBtn.innerText = 'Reset Indikator Warna Ujian';
-                    resetBtn.onclick = () => resetSiklus('ujian');
                     document.getElementById('screen-juz').appendChild(resetBtn);
-                } else {
-                    resetBtn.style.display = 'block';
                 }
+                resetBtn.style.display = 'block';
+                resetBtn.innerText = `Reset Progres Menu ${currentMode}`;
+                resetBtn.onclick = () => resetSiklus('ujian');
             } else if (resetBtn) {
                 resetBtn.style.display = 'none';
             }
@@ -516,26 +531,25 @@
             container.innerHTML = '';
             
             let parts = ['Setengah Pertama (Hal 1-10)', 'Setengah Terakhir (Hal 11-20)'];
-            let keys = ['nyetengah_1', 'nyetengah_2'];
+            let keys = ['bag_1', 'bag_2'];
             
             parts.forEach((label, index) => {
                 let div = document.createElement('div');
                 div.className = 'box-item';
                 
-                let currentStatus = dbUjian[`juz_${selectedJuz}`] || 'kosong';
-                if(currentStatus === keys[index] || currentStatus === 'ngejuz' || currentStatus === 'simaan') {
+                // Jika bag_1 atau bag_2 true di dbNyetengah, nyalakan hijau
+                if(dbNyetengah[`juz_${selectedJuz}_${keys[index]}`]) {
                      div.classList.add('status-hijau');
                 }
                 
                 div.innerHTML = `<b>${label}</b>`;
                 div.onclick = () => {
-                    selectedPartisi = index + 1; // Bagian 1 atau 2
+                    selectedPartisi = index + 1; 
                     setupPreStart(`Nyetengah Juz ${selectedJuz} (Bag. ${selectedPartisi})`, `Tes 1/2 Juz. Target: ±15 Menit.`);
                 };
                 container.appendChild(div);
             });
             
-            // Sembunyikan tombol reset deresan di menu ini
             let resetDeresan = document.getElementById('btn-reset-deresan');
             if (resetDeresan) resetDeresan.style.display = 'none'; 
             
@@ -831,7 +845,7 @@
         }
 
         function executeStop() {
-            lepasTahananLayar();
+            lepasTahananLayar(); 
             clearInterval(timerInterval);
             let now = new Date();
             jamSelesai = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -844,8 +858,38 @@
             document.getElementById('tally-display').innerHTML = "";
             
             let recapTimeObj = document.getElementById('recap-time');
-            if((currentMode === 'Ngejuz' || currentMode === 'Simaan') && (minutes < 20 || minutes >= 30)) {
-                recapTimeObj.innerHTML = `<span class="text-danger">${timeStr} ⚠️</span> <br><small>(${jamMulai} - ${jamSelesai})</small>`;
+            let recapTitle = document.getElementById('recap-title');
+            
+            // --- LOGIKA DIFERENSIASI REKAP & DURASI ---
+            let isWarning = false;
+            let warningMsg = "";
+
+            if (currentMode === 'Nyetengah') {
+                recapTitle.innerText = `Evaluasi Tes 1/2 Juz`;
+                if (minutes < 10 || minutes > 15) {
+                    isWarning = true;
+                    warningMsg = "(Di luar batas 10-15 Menit)";
+                }
+            } else if (currentMode === 'Ngejuz') {
+                recapTitle.innerText = `Evaluasi Tes 1 Juz Penuh`;
+                if (minutes < 20 || minutes > 30) {
+                    isWarning = true;
+                    warningMsg = "(Di luar batas 20-30 Menit)";
+                }
+            } else if (currentMode === 'Simaan') {
+                recapTitle.innerText = `Evaluasi Simaan Juz ${targetJuzSaatIni}`;
+                if (minutes < 20 || minutes > 30) {
+                    isWarning = true;
+                    warningMsg = "(Di luar batas 20-30 Menit)";
+                }
+            } else if (currentMode === 'Deresan') {
+                recapTitle.innerText = `Rekap Repetisi ke-${currentRepetisi}`;
+                // Deresan fokus pada repetisi, durasi lebih longgar
+            }
+
+            // --- RENDER VISUAL DURASI MERAH/HIJAU ---
+            if(isWarning) {
+                recapTimeObj.innerHTML = `<span class="text-danger">${timeStr} ⚠️</span> <br><small style="color:var(--danger); font-size:0.8rem;">${warningMsg}</small> <br><small>(${jamMulai} - ${jamSelesai})</small>`;
             } else {
                 recapTimeObj.innerHTML = `<span class="text-success">${timeStr} ✓</span> <br><small>(${jamMulai} - ${jamSelesai})</small>`;
             }
@@ -1041,25 +1085,17 @@
                 }
             }
 
-            // --- SIMPAN PENCAPAIAN UJIAN (Nyetengah/Ngejuz/Simaan) ---
+            // --- SIMPAN PENCAPAIAN UJIAN (Terpisah) ---
             if (currentMode === 'Simaan') {
-                dbUjian[`juz_${targetJuzSaatIni}`] = 'simaan';
+                dbSimaan[`juz_${targetJuzSaatIni}`] = true;
+                localStorage.setItem('tasbih_simaan', JSON.stringify(dbSimaan));
             } else if (currentMode === 'Ngejuz') {
-                dbUjian[`juz_${selectedJuz}`] = 'ngejuz';
+                dbNgejuz[`juz_${selectedJuz}`] = true;
+                localStorage.setItem('tasbih_ngejuz', JSON.stringify(dbNgejuz));
             } else if (currentMode === 'Nyetengah') {
-                let existing = dbUjian[`juz_${selectedJuz}`];
-                // Jika belum lulus Ngejuz/Simaan, update progress setengahnya
-                if (existing !== 'ngejuz' && existing !== 'simaan') {
-                    let currentHalf = (selectedPartisi === 1) ? 'nyetengah_1' : 'nyetengah_2';
-                    
-                    // Jika setengah yang lain sudah lulus, berarti otomatis lulus 1 Juz (Ngejuz)
-                    if ((existing === 'nyetengah_1' && currentHalf === 'nyetengah_2') || 
-                        (existing === 'nyetengah_2' && currentHalf === 'nyetengah_1')) {
-                        dbUjian[`juz_${selectedJuz}`] = 'ngejuz'; 
-                    } else {
-                        dbUjian[`juz_${selectedJuz}`] = currentHalf;
-                    }
-                }
+                let bag = (selectedPartisi === 1) ? 'bag_1' : 'bag_2';
+                dbNyetengah[`juz_${selectedJuz}_${bag}`] = true;
+                localStorage.setItem('tasbih_nyetengah', JSON.stringify(dbNyetengah));
             }
             localStorage.setItem('tasbih_ujian', JSON.stringify(dbUjian));
 
